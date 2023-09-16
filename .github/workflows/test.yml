@@ -28,6 +28,9 @@ jobs:
         profile: minimal
         toolchain: stable
 
+    - name: Format code
+      run: cargo fmt --all -- --check
+
     - name: Build
       run: cargo build --verbose
 
