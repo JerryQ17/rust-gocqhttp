@@ -1,5 +1,3 @@
-mod code;
-
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 

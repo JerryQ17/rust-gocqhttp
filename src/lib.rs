@@ -1,6 +1,6 @@
 mod config;
-mod error;
 mod cq_code;
+mod error;
 
 use crate::error::Result;
 use reqwest::Client;
