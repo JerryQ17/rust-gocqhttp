@@ -1,5 +1,6 @@
 mod config;
 mod error;
+mod cq_code;
 
 use crate::error::Result;
 use reqwest::Client;
@@ -48,9 +49,4 @@ impl GoCqhttp {
             },
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 }
