@@ -27,7 +27,7 @@ pub fn impl_from_string(name: &Ident, fields: &Vec<Ident>, ty: &Vec<Type>) -> To
             let re = regex::Regex::new(r"\[CQ:(?P<name>\w+)(?P<fields>(,\w+=[^,\]]+)*)\]").unwrap();
             let caps = re.captures(&s).unwrap();
             let name = caps.name("name").unwrap().as_str();
-            if name != stringify!(#name) {
+            if name != stringify!(#name).to_lowercase() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "CQCode类型不匹配"
@@ -50,7 +50,10 @@ pub fn impl_from_string(name: &Ident, fields: &Vec<Ident>, ty: &Vec<Type>) -> To
                             result.#fields = field;
                         }
                     )*
-                    _ => {}
+                    _ => return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "CQCode字段不匹配"
+                    ))),
                 }
             }
             Ok(result)

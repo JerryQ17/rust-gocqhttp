@@ -1,3 +1,5 @@
+mod code;
+
 use crate::Result;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -47,7 +49,7 @@ mod tests {
             a: Some(1.5),
             b: Some("你好".to_string()),
         };
-        assert_eq!(t.to_string().as_str(), "[CQ:T,a=1.5,b=你好]")
+        assert_eq!(t.to_string().as_str(), "[CQ:t,a=1.5,b=你好]")
     }
 
     #[test]
@@ -56,19 +58,19 @@ mod tests {
             a: Some(0f64),
             b: Some("你好".to_string()),
         };
-        assert_eq!(t.to_string().as_str(), "[CQ:T,a=0,b=你好]")
+        assert_eq!(t.to_string().as_str(), "[CQ:t,a=0,b=你好]")
     }
 
     #[test]
     fn test_from_string() {
-        let t: T = T::from_string("[CQ:T,a=1.5,b=你好]".to_string()).unwrap();
+        let t: T = T::from_string("[CQ:t,a=1.5,b=你好]".to_string()).unwrap();
         assert_eq!(t.a, Some(1.5));
         assert_eq!(t.b, Some("你好".to_string()));
     }
 
     #[test]
     fn test_from_string_with_zero() {
-        let t: T = T::from_string("[CQ:T,a=0,b=你好]".to_string()).unwrap();
+        let t: T = T::from_string("[CQ:t,a=0,b=你好]".to_string()).unwrap();
         assert_eq!(t.a, Some(0f64));
         assert_eq!(t.b, Some("你好".to_string()));
     }
