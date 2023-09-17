@@ -1,5 +1,5 @@
 mod config;
-mod cq_code;
+mod message;
 mod error;
 
 use crate::error::Result;
