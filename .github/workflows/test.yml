@@ -36,7 +36,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Format code
-        run: cargo fmt --all
+        run: cargo fmt --all -- --check
 
       - name: Build
         run: cargo build --verbose
