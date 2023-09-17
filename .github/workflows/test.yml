@@ -39,7 +39,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Build
-        run: cargo build --verbose -j${{ runner.cpuCount }}
+        run: cargo build --verbose -j$(nproc)
 
       - name: Run tests
         run: cargo test --verbose
