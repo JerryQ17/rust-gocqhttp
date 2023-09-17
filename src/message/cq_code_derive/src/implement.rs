@@ -5,7 +5,7 @@ use syn::{Ident, Type};
 pub fn impl_to_string(name: &Ident, fields: &Vec<Ident>) -> TokenStream {
     quote! {
         fn to_string(&self) -> String {
-            let mut result = format!("[CQ:{}", stringify!(#name));
+            let mut result = format!("[CQ:{}", stringify!(#name).to_lowercase());
             #(
                 if let Some(ref fields) = self.#fields {
                     result += &format!(
