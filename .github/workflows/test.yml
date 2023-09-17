@@ -43,6 +43,3 @@ jobs:
 
       - name: Run tests
         run: cargo test --verbose
-
-      - name: Clear and optimize Cargo cache
-        run: cargo install cargo-cache && cargo cache -a
