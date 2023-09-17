@@ -6,15 +6,19 @@ pub fn impl_to_string(name: &Ident, fields: &Vec<Ident>) -> TokenStream {
     quote! {
         fn to_string(&self) -> String {
             let mut result = format!("[CQ:{}", stringify!(#name).to_lowercase());
-            #(
+            #({
+                let mut f_name = stringify!(#fields);
+                if f_name == "type_" {
+                    f_name = "type";
+                }
                 if let Some(ref fields) = self.#fields {
                     result += &format!(
                         ",{}={}",
-                        stringify!(#fields),
+                        f_name,
                         Self::escape(fields.to_string())
                     );
                 }
-            )*
+            })*
             result += "]";
             result
         }
