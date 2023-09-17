@@ -39,7 +39,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Build
-        run: cargo build --verbose -j$(if [ "${{ runner.os }}" = "macos-latest" ]; then sysctl -n hw.logicalcpu; else nproc; fi)
+        run: cargo build --verbose -j$(if [ "${{ runner.os }}" = "macOS" ]; then sysctl -n hw.logicalcpu; else nproc; fi)
 
       - name: Run tests
         run: cargo test --verbose
