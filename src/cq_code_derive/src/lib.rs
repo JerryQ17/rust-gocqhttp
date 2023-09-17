@@ -27,7 +27,9 @@ fn impl_cq_code(ast: &DeriveInput) -> TokenStream {
     let body = quote! {
         let mut result = format!("[CQ:{}", stringify!(#name));
         #(
-            result += &format!(",{}={}", stringify!(#fields), self.#fields);
+            if let Some(ref #fields) = self.#fields {
+                result += &format!(",{}={}", stringify!(#fields), #fields);
+            }
         )*
         result += "]";
         result

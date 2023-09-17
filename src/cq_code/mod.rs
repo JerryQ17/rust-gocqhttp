@@ -18,15 +18,15 @@ mod tests {
 
     #[derive(Debug, Serialize, Deserialize, cq_code_derive::CQCode)]
     struct T {
-        a: f64,
-        b: String,
+        a: Option<f64>,
+        b: Option<String>,
     }
 
     #[test]
     fn test_to_string() {
         let t = T {
-            a: 1.5,
-            b: "你好".to_string(),
+            a: Some(1.5),
+            b: Some("你好".to_string()),
         };
         assert_eq!(t.to_string().as_str(), "[CQ:T,a=1.5,b=你好]")
     }
