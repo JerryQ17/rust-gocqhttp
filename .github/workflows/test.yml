@@ -28,11 +28,17 @@ jobs:
         profile: minimal
         toolchain: stable
 
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
     - name: Format code
-      run: cargo fmt --all -- --check
+      run: cargo fmt --all -- --check >> $GITHUB_OUTPUT
 
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --verbose >> $GITHUB_OUTPUT
 
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose >> $GITHUB_OUTPUT
