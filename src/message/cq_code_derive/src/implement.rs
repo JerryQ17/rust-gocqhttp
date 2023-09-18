@@ -64,3 +64,33 @@ pub fn impl_from_string(name: &Ident, fields: &Vec<Ident>, ty: &Vec<Type>) -> To
         }
     }
 }
+
+pub fn impl_to_json(name: &Ident) -> TokenStream {
+    quote! {
+        fn to_json(&self) -> crate::Result<String> {
+            let data = serde_json::to_string(self)?;
+            Ok(format!("{{\"type\":\"{}\",\"data\":{}}}", stringify!(#name).to_lowercase(), data))
+        }
+    }
+}
+
+pub fn impl_from_json(name: &Ident) -> TokenStream {
+    quote! {
+        fn from_json(s: &str) -> crate::Result<Self> {
+            let v: serde_json::Value = serde_json::from_str(s)?;
+            let name = v.get("type").ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "没有找到type字段")
+            })?;
+            if name.as_str().unwrap() != stringify!(#name).to_lowercase() {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "CQCode类型不匹配",
+                )));
+            }
+            let data = v.get("data").ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "没有找到data字段")
+            })?;
+            Ok(serde_json::from_value(data.to_owned())?)
+        }
+    }
+}

@@ -1,6 +1,6 @@
 mod implement;
 
-use implement::{impl_from_string, impl_to_string};
+use implement::{impl_from_json, impl_from_string, impl_to_json, impl_to_string};
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, Ident, Type};
 
@@ -37,11 +37,17 @@ fn impl_cq_code(ast: &DeriveInput) -> proc_macro::TokenStream {
     let fields = get_field(ast);
     let fn_to_string = impl_to_string(name, &fields);
     let fn_from_string = impl_from_string(name, &fields, &ty);
+    let fn_to_json = impl_to_json(name);
+    let fn_from_json = impl_from_json(name);
     let gen = quote! {
         impl CQCode for #name {
             #fn_to_string
 
             #fn_from_string
+
+            #fn_to_json
+
+            #fn_from_json
         }
     };
     gen.into()

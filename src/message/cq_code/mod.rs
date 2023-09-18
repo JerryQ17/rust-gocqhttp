@@ -1,4 +1,4 @@
-mod code;
+pub(crate) mod code;
 
 use crate::Result;
 use serde::de::DeserializeOwned;
@@ -23,13 +23,9 @@ pub trait CQCode: Serialize + DeserializeOwned {
 
     fn from_string(s: String) -> Result<Self>;
 
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(self)?)
-    }
+    fn to_json(&self) -> Result<String>;
 
-    fn from_json(s: &str) -> Result<Self> {
-        Ok(serde_json::from_str(s)?)
-    }
+    fn from_json(s: &str) -> Result<Self>;
 }
 
 mod tests {

@@ -344,4 +344,30 @@ impl CQCode for Text {
     fn from_string(s: String) -> crate::error::Result<Self> {
         Ok(Self { text: Some(s) })
     }
+
+    fn to_json(&self) -> crate::error::Result<String> {
+        Ok(format!(
+            "{{\"type\":\"text\",\"data\":{{\"text\":{}}}}}",
+            self.text.as_ref().unwrap()
+        ))
+    }
+
+    fn from_json(s: &str) -> crate::error::Result<Self> {
+        let v: serde_json::Value = serde_json::from_str(s)?;
+        if let Some("text") = v["type"].as_str() {
+            Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "type字段不为text").into())
+        } else {
+            Ok(Self {
+                text: Some(
+                    v["data"]["text"]
+                        .as_str()
+                        .ok_or(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "没有找到text字段",
+                        ))?
+                        .to_string(),
+                ),
+            })
+        }
+    }
 }
