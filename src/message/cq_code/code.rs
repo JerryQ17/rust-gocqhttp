@@ -1,7 +1,17 @@
+#![allow(non_snake_case)] // 某个字段的命名不符合规范，但是为了兼容go-cqhttp，所以不改了
+
 use super::CQCode;
 use crate::message::Message;
 use cq_code_derive::CQCode;
 use serde::{Deserialize, Serialize};
+
+/// 在某些CQ码中，部分字段的可能值仅有`0`, `1`，可以视为`bool`类型。
+/// 但是，不论在字符串还是文本形式中，这些字段的值是`0`, `1`而不是`true`, `false`。
+///
+/// 这就导致在序列化和反序列化的过程中，这些字段不能被Serde正确地解析。
+///
+/// 为了解决这个问题，我们将这些字段的类型定义为`BoolInCqCode`，其等同于`i8`。
+pub type BoolInCqCode = i8;
 
 /// [QQ表情](https://docs.go-cqhttp.org/cqcode/#qq-%E8%A1%A8%E6%83%85)
 #[derive(Debug, Serialize, Deserialize, CQCode)]
@@ -16,13 +26,13 @@ pub struct Record {
     /// 语音文件名
     pub file: Option<String>,
     /// 发送时可选, 默认0, 设置为1表示变声
-    pub magic: Option<bool>,
+    pub magic: Option<BoolInCqCode>,
     /// 语音 URL
     pub url: Option<String>,
     /// 只在通过网络URL发送时有效, 表示是否使用已缓存的文件, 默认1
-    pub cache: Option<bool>,
+    pub cache: Option<BoolInCqCode>,
     /// 只在通过网络URL发送时有效, 表示是否通过代理下载文件(需通过环境变量或配置文件配置代理), 默认1
-    pub proxy: Option<bool>,
+    pub proxy: Option<BoolInCqCode>,
     /// 只在通过网络URL发送时有效, 单位秒, 表示下载网络文件的超时时间, 默认不超时
     pub timeout: Option<i32>,
 }
@@ -73,7 +83,7 @@ pub struct Shake {}
 #[derive(Debug, Serialize, Deserialize, CQCode)]
 pub struct Anonymous {
     /// 可选, 表示无法匿名时是否继续发送
-    pub ignore: Option<bool>,
+    pub ignore: Option<BoolInCqCode>,
 }
 
 /// [链接分享](https://docs.go-cqhttp.org/cqcode/#%E9%93%BE%E6%8E%A5%E5%88%86%E4%BA%AB)
@@ -166,12 +176,11 @@ pub struct Image {
     /// |9|贴图广告?|
     /// |10|有待测试|
     /// |13|热搜图|
-    #[allow(non_snake_case)]
     pub subType: Option<String>,
     /// 发送时可选, 图片URL
     pub url: Option<String>,
     /// 只在通过网络URL发送时有效, 表示是否使用已缓存的文件, 默认1
-    pub cache: Option<bool>,
+    pub cache: Option<BoolInCqCode>,
     /// 发送秀图时的特效id, 默认为40000
     ///
     /// |id|类型|
@@ -318,4 +327,21 @@ pub struct CardImage {
 pub struct Tts {
     /// 内容
     pub text: Option<String>,
+}
+
+/// [文本](https://docs.go-cqhttp.org/reference/#%E6%95%B0%E7%BB%84%E6%A0%BC%E5%BC%8F%E6%B6%88%E6%81%AF)，不是CQ码，是为了方便构造消息
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Text {
+    /// 文本内容
+    pub text: Option<String>,
+}
+
+impl CQCode for Text {
+    fn to_string(&self) -> String {
+        self.text.as_ref().unwrap().to_string()
+    }
+
+    fn from_string(s: String) -> crate::error::Result<Self> {
+        Ok(Self { text: Some(s) })
+    }
 }
