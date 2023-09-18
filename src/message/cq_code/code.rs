@@ -166,7 +166,8 @@ pub struct Image {
     /// |9|贴图广告?|
     /// |10|有待测试|
     /// |13|热搜图|
-    pub sub_type: Option<String>,
+    #[allow(non_snake_case)]
+    pub subType: Option<String>,
     /// 发送时可选, 图片URL
     pub url: Option<String>,
     /// 只在通过网络URL发送时有效, 表示是否使用已缓存的文件, 默认1
@@ -267,4 +268,54 @@ pub struct Node {
     pub uin: Option<i64>,
     /// 用于自定义消息 不支持转发套娃
     pub content: Option<Message>,
+    /// 具体消息, 用于自定义消息
+    pub seq: Option<Message>,
+}
+
+/// [XML 消息](https://docs.go-cqhttp.org/cqcode/#xml-%E6%B6%88%E6%81%AF)
+#[derive(Debug, Serialize, Deserialize, CQCode)]
+pub struct Xml {
+    /// xml内容, xml中的value部分, 记得实体化处理
+    pub data: Option<String>,
+    /// 可能为空, 或空字符串
+    pub resid: Option<i32>,
+}
+
+/// [JSON 消息](https://docs.go-cqhttp.org/cqcode/#json-%E6%B6%88%E6%81%AF)
+#[derive(Debug, Serialize, Deserialize, CQCode)]
+pub struct Json {
+    /// json内容, json的所有字符串记得实体化处理
+    pub data: Option<String>,
+    /// 默认不填为0, 走小程序通道, 填了走富文本通道发送
+    pub resid: Option<i32>,
+}
+
+/// [cardimage](https://docs.go-cqhttp.org/cqcode/#cardimage)
+///
+/// **注意**：xml接口的消息都存在风控风险, 请自行兼容发送失败后的处理(可以失败后走普通图片模式)
+#[derive(Debug, Serialize, Deserialize, CQCode)]
+pub struct CardImage {
+    /// 和image的file字段对齐, 支持也是一样的
+    pub file: Option<String>,
+    /// 默认不填为400, 最小width
+    pub minwidth: Option<i64>,
+    /// 默认不填为400, 最小height
+    pub minheight: Option<i64>,
+    /// 默认不填为500, 最大width
+    pub maxwidth: Option<i64>,
+    /// 默认不填为1000, 最大height
+    pub maxheight: Option<i64>,
+    /// 分享来源的名称, 可以留空
+    pub source: Option<String>,
+    /// 分享来源的icon图标url, 可以留空
+    pub icon: Option<String>,
+}
+
+/// [文本转语音](https://docs.go-cqhttp.org/cqcode/#%E6%96%87%E6%9C%AC%E8%BD%AC%E8%AF%AD%E9%9F%B3)
+///
+/// **注意**：通过腾讯的TTS接口, 采用的音源与登录账号的性别有关
+#[derive(Debug, Serialize, Deserialize, CQCode)]
+pub struct Tts {
+    /// 内容
+    pub text: Option<String>,
 }
