@@ -73,7 +73,12 @@ impl FromStr for Message {
     type Err = Box<dyn std::error::Error>;
 
     fn from_str(s: &str) -> Result<Self> {
-        Self::from_string(s.to_string())
+        // 判断是否为 JSON 格式
+        if s.starts_with("[{") && s.ends_with("}]") {
+            Self::from_json(s)
+        } else {
+            Self::from_string(s.to_string())
+        }
     }
 }
 
@@ -107,6 +112,7 @@ mod tests {
         let m: Message = s.parse().unwrap();
         assert_eq!(m.messages.len(), 1);
         assert_eq!(m.messages[0], "");
+        assert_eq!(m.to_string(), "");
     }
 
     #[test]
@@ -115,6 +121,7 @@ mod tests {
         let m: Message = s.parse().unwrap();
         assert_eq!(m.messages.len(), 1);
         assert_eq!(m.messages[0], "你好世界");
+        assert_eq!(m.to_string(), "你好世界");
     }
 
     #[test]
@@ -123,6 +130,7 @@ mod tests {
         let m: Message = s.parse().unwrap();
         assert_eq!(m.messages.len(), 1);
         assert_eq!(m.messages[0], "[CQ:at,qq=123]");
+        assert_eq!(m.to_string(), "[CQ:at,qq=123]");
     }
 
     #[test]
@@ -135,6 +143,46 @@ mod tests {
         assert_eq!(m.messages[2], "世界");
         assert_eq!(m.messages[3], "[CQ:at,qq=456]");
         assert_eq!(m.messages[4], "你好");
+        assert_eq!(m.to_string(), "你好[CQ:at,qq=123]世界[CQ:at,qq=456]你好");
+    }
+
+    #[test]
+    fn test_message_from_str4() {
+        let s = r#"[{"type":"face","data":{"id":1}}]"#;
+        let m: Message = s.parse().unwrap();
+        assert_eq!(m.messages.len(), 1);
+        assert_eq!(m.messages[0], r#"{"type":"face","data":{"id":1}}"#);
+        assert_eq!(m.to_string(), r#"[{"type":"face","data":{"id":1}}]"#);
+    }
+
+    #[test]
+    fn test_message_from_str5() {
+        let s = r#"[{"type":"face","data":{"id":1}},{"type":"face","data":{"id":2}}]"#;
+        let m: Message = s.parse().unwrap();
+        assert_eq!(m.messages.len(), 2);
+        assert_eq!(m.messages[0], r#"{"type":"face","data":{"id":1}}"#);
+        assert_eq!(m.messages[1], r#"{"type":"face","data":{"id":2}}"#);
+        assert_eq!(
+            m.to_string(),
+            r#"[{"type":"face","data":{"id":1}},{"type":"face","data":{"id":2}}]"#
+        );
+    }
+
+    #[test]
+    fn test_message_from_str6() {
+        let s = r#"[{"type":"face","data":{"id":1}},{"type":"face","data":{"id":2}},{"type":"text","data":{"text":"你好世界"}}]"#;
+        let m: Message = s.parse().unwrap();
+        assert_eq!(m.messages.len(), 3);
+        assert_eq!(m.messages[0], r#"{"type":"face","data":{"id":1}}"#);
+        assert_eq!(m.messages[1], r#"{"type":"face","data":{"id":2}}"#);
+        assert_eq!(
+            m.messages[2],
+            r#"{"type":"text","data":{"text":"你好世界"}}"#
+        );
+        assert_eq!(
+            m.to_string(),
+            r#"[{"type":"face","data":{"id":1}},{"type":"face","data":{"id":2}},{"type":"text","data":{"text":"你好世界"}}]"#
+        );
     }
 
     #[test]
@@ -212,6 +260,7 @@ mod tests {
     fn test_macro_message_from_jsons0() {
         let m = message_from_jsons!();
         assert!(m.messages.is_empty());
+        assert_eq!(m.to_string(), "");
     }
 
     #[test]
