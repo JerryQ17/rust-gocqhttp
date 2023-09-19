@@ -1,4 +1,3 @@
-mod api;
 mod config;
 mod error;
 mod message;
