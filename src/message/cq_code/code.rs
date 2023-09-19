@@ -4,14 +4,15 @@ use super::CQCode;
 use crate::message::Message;
 use cq_code_derive::CQCode;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// 在某些CQ码中，部分字段的可能值仅有`0`, `1`，可以视为`bool`类型。
 /// 但是，不论在字符串还是文本形式中，这些字段的值是`0`, `1`而不是`true`, `false`。
 ///
 /// 这就导致在序列化和反序列化的过程中，这些字段不能被Serde正确地解析。
 ///
-/// 为了解决这个问题，我们将这些字段的类型定义为`BoolInCqCode`，其等同于`i8`。
-pub type BoolInCqCode = i8;
+/// 为了解决这个问题，我们将这些字段的类型定义为`BoolInCQCode`，其等同于`i8`。
+pub type BoolInCQCode = i8;
 
 /// [QQ表情](https://docs.go-cqhttp.org/cqcode/#qq-%E8%A1%A8%E6%83%85)
 #[derive(Debug, Serialize, Deserialize, CQCode)]
@@ -26,13 +27,13 @@ pub struct Record {
     /// 语音文件名
     pub file: Option<String>,
     /// 发送时可选, 默认0, 设置为1表示变声
-    pub magic: Option<BoolInCqCode>,
+    pub magic: Option<BoolInCQCode>,
     /// 语音 URL
     pub url: Option<String>,
     /// 只在通过网络URL发送时有效, 表示是否使用已缓存的文件, 默认1
-    pub cache: Option<BoolInCqCode>,
+    pub cache: Option<BoolInCQCode>,
     /// 只在通过网络URL发送时有效, 表示是否通过代理下载文件(需通过环境变量或配置文件配置代理), 默认1
-    pub proxy: Option<BoolInCqCode>,
+    pub proxy: Option<BoolInCQCode>,
     /// 只在通过网络URL发送时有效, 单位秒, 表示下载网络文件的超时时间, 默认不超时
     pub timeout: Option<i32>,
 }
@@ -83,7 +84,7 @@ pub struct Shake {}
 #[derive(Debug, Serialize, Deserialize, CQCode)]
 pub struct Anonymous {
     /// 可选, 表示无法匿名时是否继续发送
-    pub ignore: Option<BoolInCqCode>,
+    pub ignore: Option<BoolInCQCode>,
 }
 
 /// [链接分享](https://docs.go-cqhttp.org/cqcode/#%E9%93%BE%E6%8E%A5%E5%88%86%E4%BA%AB)
@@ -180,7 +181,7 @@ pub struct Image {
     /// 发送时可选, 图片URL
     pub url: Option<String>,
     /// 只在通过网络URL发送时有效, 表示是否使用已缓存的文件, 默认1
-    pub cache: Option<BoolInCqCode>,
+    pub cache: Option<BoolInCQCode>,
     /// 发送秀图时的特效id, 默认为40000
     ///
     /// |id|类型|
@@ -267,7 +268,7 @@ pub struct Forward {
 /// 特殊说明: 需要使用单独的API`/send_group_forward_msg`发送, 并且由于消息段较为复杂, 仅支持Array形式入参。
 /// 如果引用消息和自定义消息同时出现, 实际查看顺序将取消息段顺序.
 /// 另外按`Onebot v11`文档说明, data 应全为字符串, 但由于需要接收message类型的消息, 所以仅限此Type的content字段支持Array套娃
-#[derive(Debug, Serialize, Deserialize, CQCode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Node {
     /// 转发消息id，直接引用他人的消息合并转发, 实际查看顺序为原消息发送顺序 与下面的自定义消息二选一
     pub id: Option<i32>,
@@ -279,6 +280,117 @@ pub struct Node {
     pub content: Option<Message>,
     /// 具体消息, 用于自定义消息
     pub seq: Option<Message>,
+}
+
+impl CQCode for Node {
+    fn to_string(&self) -> String {
+        let mut s = String::from("[CQ:node");
+        if let Some(id) = &self.id {
+            s.push_str(format!(",id={}", id).as_str());
+        }
+        if let Some(name) = &self.name {
+            s.push_str(format!(",name={}", name).as_str());
+        }
+        if let Some(uin) = &self.uin {
+            s.push_str(format!(",uin={}", uin).as_str());
+        }
+        if let Some(content) = &self.content {
+            s.push_str(format!(",content={}", content.to_string()).as_str());
+        }
+        if let Some(seq) = &self.seq {
+            s.push_str(format!(",seq={}", seq.to_string()).as_str());
+        }
+        s
+    }
+
+    fn from_string(s: String) -> crate::error::Result<Self> {
+        let mut id = None;
+        let mut name = None;
+        let mut uin = None;
+        let mut content = None;
+        let mut seq = None;
+        let re = regex::Regex::new(r"\[CQ:node(?P<fields>(,\w+=[^,\]]+)*)\]")?;
+        for cap in re.captures_iter(&s) {
+            let fields = cap.name("fields").unwrap().as_str();
+            for field in fields.split(',') {
+                let mut iter = field.split('=');
+                let key = iter.next().unwrap();
+                let value = iter.next().unwrap();
+                match key {
+                    "id" => id = Some(i32::from_str(value)?),
+                    "name" => name = Some(value.to_string()),
+                    "uin" => uin = Some(i64::from_str(value)?),
+                    "content" => content = Some(Message::from_string(value.to_string())?),
+                    "seq" => seq = Some(Message::from_string(value.to_string())?),
+                    _ => {}
+                }
+            }
+        }
+        Ok(Self {
+            id,
+            name,
+            uin,
+            content,
+            seq,
+        })
+    }
+
+    fn to_json(&self) -> crate::error::Result<String> {
+        let mut s = String::from("{\"type\":\"node\",\"data\":{");
+        if let Some(id) = &self.id {
+            s.push_str(format!("\"id\":{},", id).as_str());
+        }
+        if let Some(name) = &self.name {
+            s.push_str(format!("\"name\":\"{}\",", name).as_str());
+        }
+        if let Some(uin) = &self.uin {
+            s.push_str(format!("\"uin\":{},", uin).as_str());
+        }
+        if let Some(content) = &self.content {
+            s.push_str(format!("\"content\":{},", content.to_string()).as_str());
+        }
+        if let Some(seq) = &self.seq {
+            s.push_str(format!("\"seq\":{}", seq.to_string()).as_str());
+        }
+        if s.ends_with(',') {
+            s.pop();
+        }
+        s.push_str("}}");
+        Ok(s)
+    }
+
+    fn from_json(s: &str) -> crate::error::Result<Self> {
+        let v: serde_json::Value = serde_json::from_str(s)?;
+        if let Some("node") = v["type"].as_str() {
+            Ok(Self {
+                id: v["data"]["id"].as_i64().and_then(|i| i32::try_from(i).ok()),
+                name: v["data"]["name"].as_str().map(|s| s.to_string()),
+                uin: v["data"]["uin"].as_i64(),
+                content: {
+                    let c = v["data"]["content"].as_str();
+                    match c {
+                        Some(s) => match Message::from_json(s) {
+                            Ok(m) => Some(m),
+                            Err(_) => None,
+                        },
+                        None => None,
+                    }
+                },
+                seq: {
+                    let c = v["data"]["seq"].as_str();
+                    match c {
+                        Some(s) => match Message::from_json(s) {
+                            Ok(m) => Some(m),
+                            Err(_) => None,
+                        },
+                        None => None,
+                    }
+                },
+            })
+        } else {
+            Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "type字段不为node").into())
+        }
+    }
 }
 
 /// [XML 消息](https://docs.go-cqhttp.org/cqcode/#xml-%E6%B6%88%E6%81%AF)
@@ -347,7 +459,7 @@ impl CQCode for Text {
 
     fn to_json(&self) -> crate::error::Result<String> {
         Ok(format!(
-            "{{\"type\":\"text\",\"data\":{{\"text\":{}}}}}",
+            "{{\"type\":\"text\",\"data\":{{\"text\":\"{}\"}}}}",
             self.text.as_ref().unwrap()
         ))
     }
@@ -369,5 +481,279 @@ impl CQCode for Text {
                 ),
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::message::Message;
+    use crate::message_from_jsons;
+
+    #[test]
+    fn test_face_to_string() {
+        let t = Face { id: Some(123) };
+        assert_eq!(t.to_string(), "[CQ:face,id=123]");
+    }
+
+    #[test]
+    fn test_face_from_string() {
+        let t = Face::from_string("[CQ:face,id=123]".to_string()).unwrap();
+        assert_eq!(t.id, Some(123));
+    }
+
+    #[test]
+    fn test_face_to_json() {
+        let t = Face { id: Some(123) };
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"face","data":{"id":123}}"#
+        );
+    }
+
+    #[test]
+    fn test_face_from_json() {
+        let t = Face::from_json(r#"{"type":"face","data":{"id":123}}"#).unwrap();
+        assert_eq!(t.id, Some(123));
+    }
+
+    #[test]
+    fn test_record_to_string0() {
+        let t = Record {
+            file: Some(r"file:///C:\\Users\Alice\Pictures\1.png".to_string()),
+            magic: Some(1),
+            url: Some(
+                "https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png".to_string(),
+            ),
+            cache: Some(1),
+            proxy: Some(1),
+            timeout: Some(1),
+        };
+        assert_eq!(
+            t.to_string(),
+            r"[CQ:record,file=file:///C:\\Users\Alice\Pictures\1.png,magic=1,url=https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png,cache=1,proxy=1,timeout=1]"
+        );
+    }
+
+    #[test]
+    fn test_record_to_string1() {
+        let t = Record {
+            file: Some(r"file:///C:\\Users\Alice\Pictures\1.png".to_string()),
+            magic: Some(1),
+            url: None,
+            cache: None,
+            proxy: None,
+            timeout: None,
+        };
+        assert_eq!(
+            t.to_string(),
+            r"[CQ:record,file=file:///C:\\Users\Alice\Pictures\1.png,magic=1]"
+        );
+    }
+
+    #[test]
+    fn test_record_to_string2() {
+        let t = Record {
+            file: None,
+            magic: None,
+            url: None,
+            cache: None,
+            proxy: None,
+            timeout: None,
+        };
+        assert_eq!(t.to_string(), r"[CQ:record]");
+    }
+
+    #[test]
+    fn test_record_from_string0() {
+        let t = Record::from_string(r"[CQ:record,file=file:///C:\\Users\Alice\Pictures\1.png,magic=1,url=https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png,cache=1,proxy=1,timeout=1]".to_string()).unwrap();
+        assert_eq!(
+            t.file,
+            Some(r"file:///C:\\Users\Alice\Pictures\1.png".to_string())
+        );
+        assert_eq!(t.magic, Some(1));
+        assert_eq!(
+            t.url,
+            Some("https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png".to_string())
+        );
+        assert_eq!(t.cache, Some(1));
+        assert_eq!(t.proxy, Some(1));
+        assert_eq!(t.timeout, Some(1));
+    }
+
+    #[test]
+    fn test_record_from_string1() {
+        let t = Record::from_string(
+            r"[CQ:record,file=file:///C:\\Users\Alice\Pictures\1.png,magic=1]".to_string(),
+        )
+        .unwrap();
+        assert_eq!(
+            t.file,
+            Some(r"file:///C:\\Users\Alice\Pictures\1.png".to_string())
+        );
+        assert_eq!(t.magic, Some(1));
+        assert_eq!(t.url, None);
+        assert_eq!(t.cache, None);
+        assert_eq!(t.proxy, None);
+        assert_eq!(t.timeout, None);
+    }
+
+    #[test]
+    fn test_record_from_string2() {
+        let t = Record::from_string(r"[CQ:record]".to_string()).unwrap();
+        assert_eq!(t.file, None);
+        assert_eq!(t.magic, None);
+        assert_eq!(t.url, None);
+        assert_eq!(t.cache, None);
+        assert_eq!(t.proxy, None);
+        assert_eq!(t.timeout, None);
+    }
+
+    #[test]
+    fn test_record_to_json0() {
+        let t = Record {
+            file: Some(r"file:///C:\Users\User\Pictures\1.png".to_string()),
+            magic: Some(1),
+            url: Some("https://www.baidu.com/img/1.png".to_string()),
+            cache: Some(1),
+            proxy: Some(1),
+            timeout: Some(1),
+        };
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"record","data":{"file":"file:///C:\\Users\\User\\Pictures\\1.png","magic":1,"url":"https://www.baidu.com/img/1.png","cache":1,"proxy":1,"timeout":1}}"#
+        );
+    }
+
+    #[test]
+    fn test_record_to_json1() {
+        let t = Record {
+            file: Some(r"file:///C:\Users\User\Pictures\1.png".to_string()),
+            magic: Some(1),
+            url: None,
+            cache: None,
+            proxy: None,
+            timeout: None,
+        };
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"record","data":{"file":"file:///C:\\Users\\User\\Pictures\\1.png","magic":1}}"#
+        );
+    }
+
+    #[test]
+    fn test_record_to_json2() {
+        let t = Record {
+            file: None,
+            magic: None,
+            url: None,
+            cache: None,
+            proxy: None,
+            timeout: None,
+        };
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"record","data":{}}"#
+        );
+    }
+
+    #[test]
+    fn test_record_from_json0() {
+        let t = Record::from_json(r#"{"type":"record","data":{"file":"file:///C:\\Users\\User\\Pictures\\1.png","magic":1,"url":"https://www.baidu.com/img/1.png","cache":1,"proxy":1,"timeout":1}}"#).unwrap();
+        assert_eq!(
+            t.file,
+            Some(r"file:///C:\Users\User\Pictures\1.png".to_string())
+        );
+        assert_eq!(t.magic, Some(1));
+        assert_eq!(t.url, Some("https://www.baidu.com/img/1.png".to_string()));
+        assert_eq!(t.cache, Some(1));
+        assert_eq!(t.proxy, Some(1));
+        assert_eq!(t.timeout, Some(1));
+    }
+
+    #[test]
+    fn test_record_from_json1() {
+        let t = Record::from_json(r#"{"type":"record","data":{"file":"file:///C:\\Users\\User\\Pictures\\1.png","magic":1}}"#).unwrap();
+        assert_eq!(
+            t.file,
+            Some(r"file:///C:\Users\User\Pictures\1.png".to_string())
+        );
+        assert_eq!(t.magic, Some(1));
+        assert_eq!(t.url, None);
+        assert_eq!(t.cache, None);
+        assert_eq!(t.proxy, None);
+        assert_eq!(t.timeout, None);
+    }
+
+    #[test]
+    fn test_record_from_json2() {
+        let t = Record::from_json(r#"{"type":"record","data":{}}"#).unwrap();
+        assert_eq!(t.file, None);
+        assert_eq!(t.magic, None);
+        assert_eq!(t.url, None);
+        assert_eq!(t.cache, None);
+        assert_eq!(t.proxy, None);
+        assert_eq!(t.timeout, None);
+    }
+
+    #[test]
+    fn test_node_to_json0() {
+        let t = Node {
+            id: Some(123),
+            name: None,
+            uin: None,
+            content: None,
+            seq: None,
+        };
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"node","data":{"id":123}}"#
+        );
+    }
+
+    #[test]
+    fn test_node_to_json1() {
+        let t = Node {
+            id: None,
+            name: Some("hello".to_string()),
+            uin: Some(456),
+            content: Some(message_from_jsons!(Face { id: Some(123) })),
+            seq: Some(message_from_jsons!(Face { id: Some(456) })),
+        };
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"node","data":{"name":"hello","uin":456,"content":[{"type":"face","data":{"id":123}}],"seq":[{"type":"face","data":{"id":456}}]}}"#
+        );
+    }
+
+    #[test]
+    fn test_node_to_json2() {
+        let t = Node {
+            id: None,
+            name: Some("hello".to_string()),
+            uin: Some(456),
+            content: Some(message_from_jsons!(
+                Face { id: Some(123) },
+                Text {
+                    text: Some("world".to_string())
+                },
+                Face { id: Some(456) }
+            )),
+            seq: None,
+        };
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"node","data":{"name":"hello","uin":456,"content":[{"type":"face","data":{"id":123}},{"type":"text","data":{"text":"world"}},{"type":"face","data":{"id":456}}]}}"#
+        );
+    }
+
+    #[test]
+    fn test_node_from_json0() {
+        let t = Node::from_json(r#"{"type":"node","data":{"id":123}}"#).unwrap();
+        assert_eq!(t.id, Some(123));
+        assert_eq!(t.name, None);
+        assert_eq!(t.uin, None);
+        assert_eq!(t.content, None);
+        assert_eq!(t.seq, None);
     }
 }

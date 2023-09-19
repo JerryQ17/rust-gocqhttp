@@ -9,9 +9,18 @@ pub enum MessageType {
     Json,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct Message {
     pub messages: Vec<String>,
+}
+
+impl Serialize for Message {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
 impl ToString for Message {
