@@ -69,6 +69,10 @@ pub fn impl_to_json(name: &Ident) -> TokenStream {
     quote! {
         fn to_json(&self) -> crate::Result<String> {
             let data = serde_json::to_string(self)?;
+            let re = regex::Regex::new(r#","[^"]+":null"#)?;
+            let data = re.replace_all(&data, "");
+            let re = regex::Regex::new(r#""[^"]+":null"#)?;
+            let data = re.replace_all(&data, "");
             Ok(format!("{{\"type\":\"{}\",\"data\":{}}}", stringify!(#name).to_lowercase(), data))
         }
     }
