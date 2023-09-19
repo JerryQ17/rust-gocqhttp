@@ -77,7 +77,10 @@ mod tests {
             a: Some(1.5),
             b: Some("你好".to_string()),
         };
-        assert_eq!(t.to_json().unwrap().as_str(), r#"{"a":1.5,"b":"你好"}"#)
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"t","data":{"a":1.5,"b":"你好"}}"#
+        )
     }
 
     #[test]
@@ -86,19 +89,22 @@ mod tests {
             a: Some(0f64),
             b: Some("你好".to_string()),
         };
-        assert_eq!(t.to_json().unwrap().as_str(), r#"{"a":0.0,"b":"你好"}"#)
+        assert_eq!(
+            t.to_json().unwrap().as_str(),
+            r#"{"type":"t","data":{"a":0.0,"b":"你好"}}"#
+        )
     }
 
     #[test]
     fn test_from_json() {
-        let t: T = T::from_json(r#"{"a":1.5,"b":"你好"}"#).unwrap();
+        let t: T = T::from_json(r#"{"type":"t","data":{"a":1.5,"b":"你好"}}"#).unwrap();
         assert_eq!(t.a, Some(1.5));
         assert_eq!(t.b, Some("你好".to_string()));
     }
 
     #[test]
     fn test_from_json_with_zero() {
-        let t: T = T::from_json(r#"{"a":0,"b":"你好"}"#).unwrap();
+        let t: T = T::from_json(r#"{"type":"t","data":{"a":0,"b":"你好"}}"#).unwrap();
         assert_eq!(t.a, Some(0f64));
         assert_eq!(t.b, Some("你好".to_string()));
     }
