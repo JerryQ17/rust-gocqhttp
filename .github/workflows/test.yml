@@ -1,4 +1,4 @@
-name: Rust
+name: Test
 
 on:
   push:
@@ -28,18 +28,9 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v2
-        with:
-          path: ~/.cargo
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
-
       - name: Format code
-        run: cargo fmt --all
-
-      - name: Build
-        run: cargo build --verbose
+        run: cargo fmt --all -- --check
+        continue-on-error: true
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose --release
