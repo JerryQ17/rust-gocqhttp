@@ -1,6 +1,7 @@
+mod api;
 mod config;
-mod message;
 mod error;
+mod message;
 
 use crate::error::Result;
 use reqwest::Client;
@@ -11,7 +12,7 @@ use std::process::{Child, Command};
 pub struct GoCqhttp {
     directory: String,
     process: Option<Child>,
-    client: Client,
+    http_client: Client,
 }
 
 impl GoCqhttp {
@@ -22,7 +23,7 @@ impl GoCqhttp {
         Ok(Self {
             directory,
             process: None,
-            client: Client::new(),
+            http_client: Client::new(),
         })
     }
 
