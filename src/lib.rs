@@ -2,8 +2,8 @@ mod config;
 mod error;
 mod message;
 
+use crate::config::Server;
 use crate::error::Result;
-use reqwest::Client;
 use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::process::{Child, Command};
@@ -11,18 +11,20 @@ use std::process::{Child, Command};
 pub struct GoCqhttp {
     directory: String,
     process: Option<Child>,
-    http_client: Client,
+    server: Server,
 }
 
 impl GoCqhttp {
-    pub fn new(directory: String) -> Result<Self> {
-        if Path::new(&directory).is_dir() {
-            return Err(Box::new(Error::new(ErrorKind::NotFound, "未找到该目录")));
+    pub async fn new(directory: String) -> Result<Self> {
+        let path = Path::new(&directory);
+        if !path.is_dir() {
+            return Err(Box::new(Error::new(ErrorKind::NotFound, "未找到该文件夹")));
         }
+        let server = Server::from_file(path.join("config.yml")).await.unwrap();
         Ok(Self {
             directory,
             process: None,
-            http_client: Client::new(),
+            server,
         })
     }
 

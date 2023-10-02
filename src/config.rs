@@ -4,11 +4,12 @@ use serde::Deserialize;
 use serde_yaml::{from_reader, from_value, Value};
 use std::fs::File;
 use std::io::{Error, ErrorKind};
+use std::path::Path;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 #[derive(Debug)]
-struct Server {
+pub struct Server {
     pub http: Vec<Http>,
     pub http_reverse: Vec<HttpReverse>,
     pub lambda: Vec<Lambda>,
@@ -19,28 +20,28 @@ struct Server {
 }
 
 #[derive(Debug, Deserialize)]
-struct Http {
+pub struct Http {
     address: String,
 }
 
 #[derive(Debug, Deserialize)]
-struct HttpReverse {
+pub struct HttpReverse {
     url: String,
     secret: String,
 }
 
 #[derive(Debug, Deserialize)]
-struct Lambda {
+pub struct Lambda {
     type_: String,
 }
 
 #[derive(Debug, Deserialize)]
-struct Ws {
+pub struct Ws {
     address: String,
 }
 
 #[derive(Debug, Deserialize)]
-struct WsReverse {
+pub struct WsReverse {
     universal: String,
     api: String,
     event: String,
@@ -54,12 +55,12 @@ impl Server {
         )
     }
 
-    pub async fn from_file(path: &str) -> Result<Self> {
+    pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path)?;
         let content = from_reader::<File, Value>(file)?;
         let servers = content
             .get("servers")
-            .ok_or(Self::gen_error("在config.yml中未找到servers字段"))?
+            .ok_or(Self::gen_error("在config.yml配置文件中未找到servers字段"))?
             .as_sequence()
             .ok_or(Self::gen_error("servers字段配置错误"))?;
         let mut config = Server {
@@ -81,37 +82,29 @@ impl Server {
                     .ok_or(Self::gen_error("servers字段配置错误"))?;
                 match name {
                     "http" => {
-                        let http = from_value::<Http>(server.clone())?;
-                        config.http.push(http);
-                        match server.get("post") {
-                            None => {}
-                            Some(seq) => {
-                                let seq = seq
-                                    .as_sequence()
-                                    .ok_or(Self::gen_error("post字段类型错误"))?;
-                                for item in seq {
-                                    let post = from_value::<HttpReverse>(item.clone())?;
-                                    config.http_reverse.push(post);
-                                }
+                        config.http.push(from_value(server.clone())?);
+                        if let Some(r_http) = server.get("post") {
+                            let seq = r_http
+                                .as_sequence()
+                                .ok_or(Self::gen_error("servers.http.post字段类型错误"))?;
+                            for item in seq {
+                                config.http_reverse.push(from_value(item.clone())?);
                             }
                         }
                     }
-                    "Lambda" => {
-                        let lambda = from_value::<Lambda>(server.clone())?;
-                        config.lambda.push(lambda);
+                    "lambda" => {
+                        config.lambda.push(from_value(server.clone())?);
                     }
-                    "Ws" => {
+                    "ws" => {
                         let ws = from_value::<Ws>(server.clone())?;
-
                         let stream = connect_async(ws.address.as_str()).await?.0;
                         config.ws.push(ws);
                         config.ws_client.push(stream);
                     }
-                    "WsReverse" => {
-                        let ws_reverse = from_value::<WsReverse>(server.clone())?;
-                        config.ws_reverse.push(ws_reverse);
+                    "ws-reverse" => {
+                        config.ws_reverse.push(from_value(server.clone())?);
                     }
-                    _ => return Err(Box::new(Self::gen_error("servers字段配置错误"))),
+                    _ => {}
                 }
             }
         }
