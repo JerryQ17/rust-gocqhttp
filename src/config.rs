@@ -1,4 +1,5 @@
 use crate::Result;
+use log::error;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_yaml::{from_reader, from_value, Value};
@@ -15,13 +16,13 @@ pub struct Server {
     pub lambda: Vec<Lambda>,
     pub ws: Vec<Ws>,
     pub ws_reverse: Vec<WsReverse>,
-    http_client: Client,
-    ws_client: Vec<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    pub http_client: Client,
+    pub ws_client: Vec<WebSocketStream<MaybeTlsStream<TcpStream>>>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Http {
-    address: String,
+    pub address: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,22 +48,23 @@ pub struct WsReverse {
     event: String,
 }
 
-impl Server {
-    fn gen_error(msg: &str) -> Error {
-        Error::new(
-            ErrorKind::InvalidData,
-            format!("{}，请参考https://docs.go-cqhttp.org/guide/config.html#%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AF", msg)
-        )
-    }
+fn gen_error(msg: &str) -> Error {
+    error!("{}", msg);
+    Error::new(
+        ErrorKind::InvalidData,
+        format!("{}，请参考https://docs.go-cqhttp.org/guide/config.html#%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AF", msg)
+    )
+}
 
+impl Server {
     pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let file = File::open(path)?;
         let content = from_reader::<File, Value>(file)?;
         let servers = content
             .get("servers")
-            .ok_or(Self::gen_error("在config.yml配置文件中未找到servers字段"))?
+            .ok_or(gen_error("在config.yml配置文件中未找到servers字段"))?
             .as_sequence()
-            .ok_or(Self::gen_error("servers字段配置错误"))?;
+            .ok_or(gen_error("servers字段配置错误"))?;
         let mut config = Server {
             http: Vec::new(),
             http_reverse: Vec::new(),
@@ -73,20 +75,18 @@ impl Server {
             ws_client: Vec::new(),
         };
         for item in servers {
-            let m = item
-                .as_mapping()
-                .ok_or(Self::gen_error("servers字段配置错误"))?;
+            let m = item.as_mapping().ok_or(gen_error("servers字段配置错误"))?;
             for (server_type, server) in m {
                 let name = server_type
                     .as_str()
-                    .ok_or(Self::gen_error("servers字段配置错误"))?;
+                    .ok_or(gen_error("servers字段配置错误"))?;
                 match name {
                     "http" => {
                         config.http.push(from_value(server.clone())?);
                         if let Some(r_http) = server.get("post") {
                             let seq = r_http
                                 .as_sequence()
-                                .ok_or(Self::gen_error("servers.http.post字段类型错误"))?;
+                                .ok_or(gen_error("servers.http.post字段类型错误"))?;
                             for item in seq {
                                 config.http_reverse.push(from_value(item.clone())?);
                             }
