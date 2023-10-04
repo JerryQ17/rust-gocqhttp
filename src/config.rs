@@ -93,7 +93,14 @@ impl Server {
                         }
                     }
                     "lambda" => {
-                        config.lambda.push(from_value(server.clone())?);
+                        config.lambda.push(Lambda {
+                            type_: server
+                                .get("type")
+                                .ok_or(gen_error("servers.lambda.type字段类型错误"))?
+                                .as_str()
+                                .ok_or(gen_error("servers.lambda.type字段类型错误"))?
+                                .to_string(),
+                        });
                     }
                     "ws" => {
                         let ws = from_value::<Ws>(server.clone())?;
