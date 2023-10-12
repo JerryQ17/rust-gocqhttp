@@ -14,5 +14,6 @@ serde-value = "0.7.0"
 tokio-tungstenite = "*"
 cq_code_derive = { path = "src/message/cq_code_derive" }
 regex = "1.9.5"
-tokio = "1.32.0"
+tokio = { version = "1.32.0", features = ["rt", "macros"] }
 log = "0.4.20"
+async-trait = "0.1.73"

@@ -1,15 +1,35 @@
-mod cq_code;
+pub mod cq_code;
+
 use crate::Result;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::str::FromStr;
 
 pub enum MessageType {
     String,
-    Json,
+    Array,
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+impl<T: AsRef<str>> From<T> for MessageType {
+    fn from(s: T) -> Self {
+        match s.as_ref() {
+            "string" => Self::String,
+            "array" => Self::Array,
+            _ => Self::String,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MessageType {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(String::deserialize(deserializer)?.into())
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Message {
     pub messages: Vec<String>,
 }
@@ -27,7 +47,31 @@ impl ToString for Message {
     fn to_string(&self) -> String {
         match self.message_type() {
             MessageType::String => self.messages.join(""),
-            MessageType::Json => format!("[{}]", self.messages.join(",")),
+            MessageType::Array => format!("[{}]", self.messages.join(",")),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Message {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+impl FromStr for Message {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        // 判断是否为JSON格式
+        if s.starts_with("[{") && s.ends_with("}]") {
+            Self::from_json(s)
+        } else {
+            Self::from_string(s.to_string())
         }
     }
 }
@@ -38,7 +82,7 @@ impl Message {
             return MessageType::String;
         }
         if self.messages[0].starts_with('{') {
-            MessageType::Json
+            MessageType::Array
         } else {
             MessageType::String
         }
@@ -75,19 +119,6 @@ impl Message {
             messages.push(cap.get(0).unwrap().as_str().to_string());
         }
         Ok(Self { messages })
-    }
-}
-
-impl FromStr for Message {
-    type Err = Box<dyn std::error::Error>;
-
-    fn from_str(s: &str) -> Result<Self> {
-        // 判断是否为 JSON 格式
-        if s.starts_with("[{") && s.ends_with("}]") {
-            Self::from_json(s)
-        } else {
-            Self::from_string(s.to_string())
-        }
     }
 }
 

@@ -4,6 +4,8 @@ use super::CQCode;
 use crate::message::Message;
 use cq_code_derive::CQCode;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
 /// 在某些CQ码中，部分字段的可能值仅有`0`, `1`，可以视为`bool`类型。
@@ -309,7 +311,7 @@ impl CQCode for Node {
         let mut uin = None;
         let mut content = None;
         let mut seq = None;
-        let re = regex::Regex::new(r"\[CQ:node(?P<fields>(,\w+=[^,\]]+)*)\]")?;
+        let re = regex::Regex::new(r"\[CQ:node(?P<fields>(,\w+=[^,\]]+)*)]")?;
         for cap in re.captures_iter(&s) {
             let fields = cap.name("fields").unwrap().as_str();
             for field in fields.split(',') {
@@ -360,35 +362,21 @@ impl CQCode for Node {
     }
 
     fn from_json(s: &str) -> crate::error::Result<Self> {
-        let v: serde_json::Value = serde_json::from_str(s)?;
+        let v: Value = serde_json::from_str(s)?;
         if let Some("node") = v["type"].as_str() {
             Ok(Self {
                 id: v["data"]["id"].as_i64().and_then(|i| i32::try_from(i).ok()),
-                name: v["data"]["name"].as_str().map(|s| s.to_string()),
+                name: v["data"]["name"].as_str().map(ToString::to_string),
                 uin: v["data"]["uin"].as_i64(),
-                content: {
-                    let c = v["data"]["content"].as_str();
-                    match c {
-                        Some(s) => match Message::from_json(s) {
-                            Ok(m) => Some(m),
-                            Err(_) => None,
-                        },
-                        None => None,
-                    }
-                },
-                seq: {
-                    let c = v["data"]["seq"].as_str();
-                    match c {
-                        Some(s) => match Message::from_json(s) {
-                            Ok(m) => Some(m),
-                            Err(_) => None,
-                        },
-                        None => None,
-                    }
-                },
+                content: v["data"]["content"]
+                    .as_str()
+                    .and_then(|c| Message::from_json(c).ok()),
+                seq: v["data"]["seq"]
+                    .as_str()
+                    .and_then(|c| Message::from_json(c).ok()),
             })
         } else {
-            Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "type字段不为node").into())
+            Err(Error::new(ErrorKind::InvalidData, "type字段不为node").into())
         }
     }
 }
@@ -465,21 +453,16 @@ impl CQCode for Text {
     }
 
     fn from_json(s: &str) -> crate::error::Result<Self> {
-        let v: serde_json::Value = serde_json::from_str(s)?;
-        if let Some("text") = v["type"].as_str() {
-            Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "type字段不为text").into())
-        } else {
-            Ok(Self {
-                text: Some(
-                    v["data"]["text"]
-                        .as_str()
-                        .ok_or(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            "没有找到text字段",
-                        ))?
-                        .to_string(),
-                ),
-            })
+        let v: Value = serde_json::from_str(s)?;
+        match v["type"].as_str() {
+            Some("text") => match v["data"]["text"].as_str() {
+                Some(s) => Ok(Self {
+                    text: Some(s.to_string()),
+                }),
+                None => Err(Error::new(ErrorKind::InvalidData, "没有找到text字段").into()),
+            },
+            Some(_) => Err(Error::new(ErrorKind::InvalidData, "type字段不为text").into()),
+            None => Err(Error::new(ErrorKind::InvalidData, "没有找到type字段").into()),
         }
     }
 }
